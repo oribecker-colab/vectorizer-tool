@@ -269,55 +269,134 @@ async function preprocessImage(imageBuffer) {
     try {
         console.log('🔧 Starting image preprocessing...');
         
+        // Detect cloud environment for optimized settings
+        const isCloudEnvironment = process.env.NODE_ENV === 'production' || 
+                                  process.env.RENDER || 
+                                  process.env.RAILWAY || 
+                                  process.env.HEROKU ||
+                                  process.env.VERCEL;
+        
+        console.log(`🌐 Environment: ${isCloudEnvironment ? 'Cloud (optimized)' : 'Local (high quality)'}`);
+        
         // Get image metadata
         const metadata = await sharp(imageBuffer).metadata();
         console.log(`📊 Original image: ${metadata.width}x${metadata.height}, format: ${metadata.format}`);
         
-        // Calculate optimal size (vectorizer.ai works better with smaller, cleaner images)
-        const maxDimension = 800; // Reasonable size for vectorization
+        // Environment-specific settings
+        const config = isCloudEnvironment ? {
+            maxDimension: 600,        // Smaller for cloud memory constraints
+            quality: 90,              // Balanced quality vs performance
+            compressionLevel: 6,      // Moderate compression for speed
+            colors: 512,              // More colors for better quality
+            effort: 4,                // Lower effort for faster processing
+            kernel: sharp.kernel.cubic // Faster than lanczos3
+        } : {
+            maxDimension: 800,        // Higher quality for local
+            quality: 95,              // High quality
+            compressionLevel: 7,      // Good compression
+            colors: 1024,             // More colors
+            effort: 6,                // Higher effort for quality
+            kernel: sharp.kernel.lanczos3
+        };
+        
+        // Calculate optimal size
         let width = metadata.width;
         let height = metadata.height;
         
-        if (width > maxDimension || height > maxDimension) {
-            const ratio = Math.min(maxDimension / width, maxDimension / height);
+        if (width > config.maxDimension || height > config.maxDimension) {
+            const ratio = Math.min(config.maxDimension / width, config.maxDimension / height);
             width = Math.round(width * ratio);
             height = Math.round(height * ratio);
-            console.log(`📏 Resizing to: ${width}x${height}`);
+            console.log(`📏 Resizing to: ${width}x${height} (${isCloudEnvironment ? 'cloud-optimized' : 'local'})`);
         }
         
-        // Process the image for optimal vectorization - match the working format
-        const processedBuffer = await sharp(imageBuffer)
-            .resize(width, height, {
-                kernel: sharp.kernel.lanczos3,
-                withoutEnlargement: true
-            })
-            .removeAlpha() // Remove transparency that might cause issues
-            .png({
-                quality: 100,
-                compressionLevel: 9,
-                palette: false, // Don't use palette mode
-                colors: 256 // Limit colors
-            })
-            .toBuffer();
+        // Progressive processing with fallbacks
+        let processedBuffer;
+        
+        try {
+            // Primary processing attempt
+            processedBuffer = await sharp(imageBuffer)
+                .resize(width, height, {
+                    kernel: config.kernel,
+                    withoutEnlargement: true,
+                    fastShrinkOnLoad: isCloudEnvironment // Optimize memory usage
+                })
+                .removeAlpha() // Remove transparency
+                .png({
+                    quality: config.quality,
+                    compressionLevel: config.compressionLevel,
+                    palette: false,
+                    colors: config.colors,
+                    effort: config.effort,
+                    progressive: true // Better for web delivery
+                })
+                .toBuffer();
+                
+        } catch (primaryError) {
+            console.log('⚠️ Primary processing failed, trying fallback...', primaryError.message);
+            
+            // Fallback with more conservative settings
+            processedBuffer = await sharp(imageBuffer)
+                .resize(Math.min(width, 400), Math.min(height, 400), {
+                    kernel: sharp.kernel.nearest,
+                    withoutEnlargement: true,
+                    fastShrinkOnLoad: true
+                })
+                .removeAlpha()
+                .png({
+                    quality: 80,
+                    compressionLevel: 3,
+                    palette: false,
+                    colors: 256,
+                    effort: 1
+                })
+                .toBuffer();
+                
+            console.log('✅ Fallback processing successful');
+        }
         
         console.log(`✅ Image preprocessed: ${imageBuffer.length} → ${processedBuffer.length} bytes`);
+        console.log(`📈 Compression ratio: ${((1 - processedBuffer.length / imageBuffer.length) * 100).toFixed(1)}%`);
         
         return {
             buffer: processedBuffer,
             filename: 'processed_image.png',
             originalSize: imageBuffer.length,
-            processedSize: processedBuffer.length
+            processedSize: processedBuffer.length,
+            environment: isCloudEnvironment ? 'cloud' : 'local'
         };
         
     } catch (error) {
         console.error('💥 Image preprocessing error:', error);
-        // If preprocessing fails, return original image
-        return {
-            buffer: imageBuffer,
-            filename: 'original_image.png',
-            originalSize: imageBuffer.length,
-            processedSize: imageBuffer.length
-        };
+        
+        // Ultimate fallback - return original with minimal processing
+        try {
+            const fallbackBuffer = await sharp(imageBuffer)
+                .resize(400, 400, { 
+                    fit: 'inside',
+                    withoutEnlargement: true 
+                })
+                .png({ quality: 70, compressionLevel: 1 })
+                .toBuffer();
+                
+            console.log('🔄 Using minimal processing fallback');
+            return {
+                buffer: fallbackBuffer,
+                filename: 'fallback_image.png',
+                originalSize: imageBuffer.length,
+                processedSize: fallbackBuffer.length,
+                environment: 'fallback'
+            };
+        } catch (fallbackError) {
+            console.error('💥 All preprocessing failed, using original:', fallbackError);
+            return {
+                buffer: imageBuffer,
+                filename: 'original_image.png',
+                originalSize: imageBuffer.length,
+                processedSize: imageBuffer.length,
+                environment: 'original'
+            };
+        }
     }
 }
 
