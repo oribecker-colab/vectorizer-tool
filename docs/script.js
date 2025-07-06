@@ -163,7 +163,7 @@ class ImageVectorizer {
             // Create FormData for the API call
             const formData = new FormData();
             formData.append('image', file);
-            formData.append('mode', 'production'); // Use production mode for clean results
+            formData.append('mode', 'test'); // Use test mode for GitHub Pages (free, watermarked)
             formData.append('output.file_format', 'svg');
             formData.append('policy.retention_days', '1');
             
