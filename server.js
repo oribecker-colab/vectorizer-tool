@@ -48,6 +48,43 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Account info endpoint for credit balance
+app.get('/api/account', async (req, res) => {
+    try {
+        const response = await fetch('https://vectorizer.ai/api/v1/account', {
+            method: 'GET',
+            headers: {
+                'Authorization': API_CREDENTIALS.authorization
+            }
+        });
+        
+        if (response.ok) {
+            const accountData = await response.json();
+            res.json({
+                success: true,
+                credits: accountData.credits,
+                subscriptionPlan: accountData.subscriptionPlan,
+                subscriptionState: accountData.subscriptionState,
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            res.status(response.status).json({
+                success: false,
+                error: 'Failed to fetch account info',
+                timestamp: new Date().toISOString()
+            });
+        }
+    } catch (error) {
+        console.error('Error fetching account info:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error',
+            message: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // Main vectorization endpoint
 app.post('/api/vectorize', upload.single('image'), async (req, res) => {
     console.log('🚀 Vectorization request received');

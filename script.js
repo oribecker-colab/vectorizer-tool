@@ -11,6 +11,7 @@ class ImageVectorizer {
         
         this.initializeElements();
         this.bindEvents();
+        this.loadCreditBalance();
     }
     
     initializeElements() {
@@ -144,6 +145,8 @@ class ImageVectorizer {
             if (svgResult) {
                 this.currentSvg = svgResult;
                 this.showResults(svgResult);
+                // Refresh credit balance after successful vectorization
+                await this.refreshCreditBalance();
             } else {
                 throw new Error('Failed to vectorize image. Please try again.');
             }
@@ -379,6 +382,39 @@ class ImageVectorizer {
         
         // Clean up
         URL.revokeObjectURL(url);
+    }
+    
+    async loadCreditBalance() {
+        try {
+            console.log('💰 Loading credit balance...');
+            const response = await fetch('/api/account');
+            
+            if (response.ok) {
+                const accountData = await response.json();
+                const creditAmount = document.getElementById('creditAmount');
+                
+                if (accountData.success && typeof accountData.credits === 'number') {
+                    creditAmount.textContent = accountData.credits.toFixed(0);
+                    console.log(`✅ Credit balance loaded: ${accountData.credits}`);
+                } else {
+                    creditAmount.textContent = 'Error';
+                    console.log('❌ Failed to load credit balance:', accountData);
+                }
+            } else {
+                const creditAmount = document.getElementById('creditAmount');
+                creditAmount.textContent = 'Error';
+                console.log('❌ Failed to fetch account info:', response.status);
+            }
+        } catch (error) {
+            console.log('💥 Error loading credit balance:', error);
+            const creditAmount = document.getElementById('creditAmount');
+            creditAmount.textContent = 'Error';
+        }
+    }
+    
+    async refreshCreditBalance() {
+        // Refresh credit balance after vectorization
+        await this.loadCreditBalance();
     }
 }
 
