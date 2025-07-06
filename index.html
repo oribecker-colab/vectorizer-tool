@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Vectorizer Tool</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Image Vectorizer</h1>
+            <p>Upload an image and convert it to SVG format</p>
+        </header>
+
+        <main>
+            <!-- Upload Section -->
+            <div class="upload-section" id="uploadSection">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📁</div>
+                    <h3>Drop your image here</h3>
+                    <p>or click to browse</p>
+                    <input type="file" id="fileInput" accept="image/*" hidden>
+                </div>
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <img id="previewImage" alt="Preview" style="max-width: 200px; max-height: 200px;">
+                    <div class="file-details">
+                        <p id="fileName"></p>
+                        <p id="fileSize"></p>
+                    </div>
+                    <button id="vectorizeBtn" class="btn-primary">Vectorize Image</button>
+                    <button id="clearBtn" class="btn-secondary">Clear</button>
+                </div>
+            </div>
+
+            <!-- Processing Section -->
+            <div class="processing-section" id="processingSection" style="display: none;">
+                <div class="loader"></div>
+                <h3>Vectorizing your image...</h3>
+                <p>This may take a few moments</p>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="resultsSection" style="display: none;">
+                <h3>Vectorization Complete!</h3>
+                <div class="result-preview">
+                    <div id="svgPreview"></div>
+                </div>
+                <div class="result-actions">
+                    <button id="downloadBtn" class="btn-primary">Download SVG</button>
+                    <button id="newImageBtn" class="btn-secondary">Process Another Image</button>
+                </div>
+            </div>
+
+            <!-- Error Section -->
+            <div class="error-section" id="errorSection" style="display: none;">
+                <div class="error-icon">⚠️</div>
+                <h3>Oops! Something went wrong</h3>
+                <p id="errorMessage"></p>
+                <button id="retryBtn" class="btn-primary">Try Again</button>
+            </div>
+        </main>
+
+        <footer>
+            <p>Supported formats: JPG, PNG, GIF, BMP</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
